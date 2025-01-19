@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>삼각함수의 그래프와 성질</title>
+  <!-- MathJax 로드 -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" defer></script>
+  <style>
+    body {
+      margin: 0 auto; 
+      padding: 0; 
+      max-width: 800px;
+      font-family: sans-serif;
+      text-align: center;
+    }
+
+    h1 {
+      margin-top: 30px;
+    }
+
+    .centered {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      margin: 10px 0;
+    }
+
+    .difficulty-btn {
+      margin: 5px;
+      padding: 10px 20px;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      background-color: #337ab7;
+      color: #fff;
+      font-size: 14px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    /* 에너지바 스타일 */
+    #energyBarContainer {
+      width: 80%;
+      background-color: #eee;
+      height: 20px;
+      margin: 10px auto;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    #energyBar {
+      height: 100%;
+      background-color: #76c7c0;
+      width: 100%;
+    }
+
+    #questionBox {
+      border: 2px solid #ccc;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 20px auto;
+      text-align: left;
+      max-width: 700px;
+    }
+
+    .choice-btn {
+      display: block;
+      margin: 8px 0;
+      padding: 10px;
+      width: 80%;
+      max-width: 300px;
+      cursor: pointer;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      text-align: left;
+      background-color: #f9f9f9;
+    }
+    .choice-btn:hover {
+      background-color: #ececec;
+    }
+
+    #gameInfo {
+      margin: 10px 0;
+    }
+
+    #response {
+      white-space: pre-wrap;
+      text-align: left;
+      margin-top: 20px;
+      background: #f5f5f5;
+      padding: 10px;
+      border-radius: 5px;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+
+<h1>삼각함수의 그래프와 성질</h1>
+
+<div class="centered" id="nameInputScreen">
+  <label for="playerName">이름을 입력하세요:</label>
+  <input type="text" id="playerName" />
+  <button class="difficulty-btn" onclick="showDifficulty()">확인</button>
+</div>
+
+<div class="centered hidden" id="difficultyScreen">
+  <p>난이도를 선택하세요</p>
+  <button class="difficulty-btn" onclick="startGame('최상')">최상 (20점 / 문제, 25초 시작)</button>
+  <button class="difficulty-btn" onclick="startGame('상')">상 (15점 / 문제, 35초 시작)</button>
+  <button class="difficulty-btn" onclick="startGame('중')">중 (13점 / 문제, 45초 시작)</button>
+  <button class="difficulty-btn" onclick="startGame('하')">하 (10점 / 문제, 시간제한 없음)</button>
+</div>
+
+<div class="centered hidden" id="gameScreen">
+  <div id="gameInfo">
+    <div>남은 기회: <span id="lives">3</span></div>
+    <div>현재 점수: <span id="score">0</span></div>
+    <div>경과 시간: <span id="elapsedTime">0</span>초</div>
+  </div>
+  <div id="energyBarContainer">
+    <div id="energyBar"></div>
+  </div>
+  <div id="questionBox">
+    <div id="questionText"></div>
+    <div id="choices"></div>
+  </div>
+</div>
+
+<div class="centered hidden">
+  <button class="difficulty-btn" id="sendScoreBtn" onclick="sendScore()">점수 전송</button>
+</div>
+
+<div class="centered">
+  <div id="response"></div>
+</div>
+
+<script>
+  /*******************************************
+   *  게임 데이터 및 로직
+   *******************************************/
+  // 모든 문제 (44개). numbering 제거, 보기 순서 변경 금지, 정답 그대로.
+  // 문제 내부 부등호 -> LaTeX, ex) -1 <= y <= 1 => \\(-1 \\le y \\le 1\\)
+  // '다음은...' 문구 포함, 각 문제 독립적.
+
+  const allQuestions = [
+    // --- (4지선다) f(x) 주기 문제들 ---
+    {
+      question: "함수 \\(f(x)\\)의 주기가 2이고, \\(f(1)=1\\)일 때, \\(f(3)\\)의 값은?",
+      type: "4choice",
+      choices: [
+        "(A) 1",
+        "(B) 0",
+        "(C) 2",
+        "(D) -1"
+      ],
+      answer: 0  // (A) is index 0
+    },
+    {
+      question: "함수 \\(f(x)\\)의 주기가 3이고, \\(f(1)=2\\)일 때, \\(f(10)\\)의 값은?",
+      type: "4choice",
+      choices: [
+        "(A) 1",
+        "(B) 2",
+        "(C) 3",
+        "(D) -1"
+      ],
+      answer: 1
+    },
+    {
+      question: "함수 \\(f(x)\\)의 주기가 3이고, \\(f(1)=1,\\ f(2)=4\\)일 때, \\(f(10)\\)의 값은?",
+      type: "4choice",
+      choices: [
+        "(A) -2",
+        "(B) 1",
+        "(C) 4",
+        "(D) 2"
+      ],
+      answer: 1
+    },
+    {
+      question: "함수 \\(f(x)\\)의 주기가 5이고, \\(f(2)=11\\)일 때, \\(f(222)\\)의 값은?",
+      type: "4choice",
+      choices: [
+        "(A) 11",
+        "(B) 0",
+        "(C) 22",
+        "(D) -11"
+      ],
+      answer: 0
+    },
+    {
+      question: "함수 \\(f(x)\\)의 주기가 3이고, \\(f(10)=-2\\)일 때, \\(f(-5)\\)의 값은?",
+      type: "4choice",
+      choices: [
+        "(A) -2",
+        "(B) 0",
+        "(C) 2",
+        "(D) -5"
+      ],
+      answer: 0
+    },
+    {
+      question: "함수 \\(f(x)\\)의 주기가 \\(\\pi\\)이고, \\(f(0)=0\\)일 때, \\(f(2\\pi)\\)의 값은?",
+      type: "4choice",
+      choices: [
+        "(A) 2\\pi",
+        "(B) 0",
+        "(C) 1",
+        "(D) -1"
+      ],
+      answer: 1
+    },
+    {
+      question: "함수 \\(f(x)\\)의 주기가 2이고, \\(f(1)=1\\)일 때, \\(f(9)\\)의 값은?",
+      type: "4choice",
+      choices: [
+        "(A) 1",
+        "(B) -1",
+        "(C) 3",
+        "(D) 0"
+      ],
+      answer: 0
+    },
+    {
+      question: "함수 \\(f(x)\\)가 모든 실수 \\(x\\)에 대하여 \\(f(x+1)=f(x-1)\\)을 만족하고, \\(f(3)=1\\), \\(f(4)=-2\\)일 때, \\(f(121)-f(452)\\)의 값은?",
+      type: "4choice",
+      choices: [
+        "(A) -1",
+        "(B) 3",
+        "(C) 2",
+        "(D) -3"
+      ],
+      answer: 1
+    },
+    {
+      question: "함수 \\(f(x)\\)가 모든 실수 \\(x\\)에 대하여 \\(f(x+4)=f(x)\\)을 만족하고, \\(f(2)=3\\)일 때, \\(f(18)\\)의 값은?",
+      type: "4choice",
+      choices: [
+        "(A) 2",
+        "(B) 0",
+        "(C) 3",
+        "(D) 6"
+      ],
+      answer: 2
+    },
+    {
+      question: "함수 \\(f(x)\\)가 모든 실수 \\(x\\)에 대하여 \\(f(x+6)=f(x)\\)을 만족하고, \\(f(1)=1\\)일 때, \\(f(25)\\)의 값은?",
+      type: "4choice",
+      choices: [
+        "(A) 25",
+        "(B) 0",
+        "(C) 1",
+        "(D) -1"
+      ],
+      answer: 2
+    },
+    {
+      question: "함수 \\(f(x)\\)가 모든 실수 \\(x\\)에 대하여 \\(f(x+3)=f(x)\\)를 만족하며, \\(f(x)=\\cos(\\pi x)\\)일 때, \\(f(17)\\)의 값은?",
+      type: "4choice",
+      choices: [
+        "(A) 1",
+        "(B) -1",
+        "(C) 0",
+        "(D) \\sqrt{2}"
+      ],
+      answer: 1
+    },
+
+    // --- (2지선다) sin x 문제들 (13-21) ---
+    {
+      question: "다음은 함수 \\(y = \\sin x\\)에 대한 설명이다. 최대값은 1이고, 최솟값은 -1이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 0
+    },
+    {
+      question: "다음은 함수 \\(y = \\sin x\\)에 대한 설명이다. \\(x\\)축에 대하여 대칭이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 1
+    },
+    {
+      question: "다음은 함수 \\(y = \\sin x\\)에 대한 설명이다. \\(\\sin(\\pi + x) = \\sin x\\)",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 1
+    },
+    {
+      question: "다음은 함수 \\(y = \\sin x\\)에 대한 설명이다. 원점에 대하여 대칭이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 0
+    },
+    {
+      question: "다음은 함수 \\(y = \\sin x\\)에 대한 설명이다. 주기가 \\(2\\pi\\)인 주기함수이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 0
+    },
+    {
+      question: "다음은 함수 \\(y = \\sin x\\)에 대한 설명이다. 치역은 \\(\\{-1 \\le y \\le 1\\}\\)이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 0
+    },
+    {
+      question: "다음은 함수 \\(y = \\sin x\\)에 대한 설명이다. 정의역은 양의 실수 전체의 집합이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 1
+    },
+    {
+      question: "다음은 함수 \\(y = \\sin x\\)에 대한 설명이다. 어떤 실수 \\(x\\)에 대하여 \\(\\sin x = 2\\)이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 1
+    },
+    {
+      question: "다음은 함수 \\(y = \\sin x\\)에 대한 설명이다. 정의역은 실수 전체의 집합이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 0
+    },
+
+    // --- (2지선다) cos x 문제들 (31-39) ---
+    {
+      question: "다음은 삼각함수 \\(y = \\cos x\\)에 대한 설명이다. 그래프는 함수 \\(y = \\sin x\\)의 그래프를 \\(x\\)축의 방향으로 \\(\\frac{\\pi}{2}\\)만큼 평행이동한 것과 같다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 1
+    },
+    {
+      question: "다음은 삼각함수 \\(y = \\cos x\\)에 대한 설명이다. 최댓값은 1이고, 최솟값은 없다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 1
+    },
+    {
+      question: "다음은 삼각함수 \\(y = \\cos x\\)에 대한 설명이다. \\(\\cos(\\pi + x) = \\cos x\\)",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 1
+    },
+    {
+      question: "다음은 삼각함수 \\(y = \\cos x\\)에 대한 설명이다. 최댓값은 1이고, 최솟값은 -1이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 0
+    },
+    {
+      question: "다음은 삼각함수 \\(y = \\cos x\\)에 대한 설명이다. 어떤 실수 \\(x\\)에 대하여 \\(\\cos x = \\frac{3}{2}\\)이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 1
+    },
+    {
+      question: "다음은 삼각함수 \\(y = \\cos x\\)에 대한 설명이다. 정의역은 \\(\\{-1 \\le x \\le 1\\}\\)이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 1
+    },
+    {
+      question: "다음은 삼각함수 \\(y = \\cos x\\)에 대한 설명이다. \\(y\\)축에 대하여 대칭이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 0
+    },
+    {
+      question: "다음은 삼각함수 \\(y = \\cos x\\)에 대한 설명이다. 주기가 \\(2\\pi\\)인 주기함수이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 0
+    },
+    {
+      question: "다음은 삼각함수 \\(y = \\cos x\\)에 대한 설명이다. 치역은 양의 실수 전체의 집합이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 1
+    },
+
+    // --- (2지선다) tan x 문제들 (47-54) ---
+    {
+      question: "다음은 삼각함수 \\(y = \\tan x\\)에 대한 설명이다. 점근선의 방정식은 \\(x = 2n\\pi + \\frac{\\pi}{2}\\)\\((n\\)은 정수\\()\\)이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 1
+    },
+    {
+      question: "다음은 삼각함수 \\(y = \\tan x\\)에 대한 설명이다. \\(\\tan(-x) = -\\tan x\\)",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 0
+    },
+    {
+      question: "다음은 삼각함수 \\(y = \\tan x\\)에 대한 설명이다. 원점에 대하여 대칭이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 0
+    },
+    {
+      question: "다음은 삼각함수 \\(y = \\tan x\\)에 대한 설명이다. 주기가 \\(\\pi\\)인 주기함수이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 0
+    },
+    {
+      question: "다음은 삼각함수 \\(y = \\tan x\\)에 대한 설명이다. 치역은 \\(\\{-1 \\le y \\le 1\\}\\)이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 1
+    },
+    {
+      question: "다음은 삼각함수 \\(y = \\tan x\\)에 대한 설명이다. 정의역은 양의 실수 전체의 집합이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 1
+    },
+    {
+      question: "다음은 삼각함수 \\(y = \\tan x\\)에 대한 설명이다. 최댓값은 1이고, 최솟값은 -1이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 1
+    },
+    {
+      question: "다음은 삼각함수 \\(y = \\tan x\\)에 대한 설명이다. 정의역은 실수 전체의 집합이다.",
+      type: "2choice",
+      choices: [
+        "(A) O",
+        "(B) X"
+      ],
+      answer: 1
+    },
+
+    // --- (4지선다) 61-67 비교문제 ---
+    {
+      question: "다음 주어진 세 수 \\(1,\\ \\sin 1,\\ \\cos 1\\)의 대소 관계를 비교하라.",
+      type: "4choice",
+      choices: [
+        "(A) \\(\\cos 1 < \\sin 1 < 1\\)",
+        "(B) \\(\\cos 1 < 1 < \\sin 1\\)",
+        "(C) \\(1 < \\sin 1 < \\cos 1\\)",
+        "(D) \\(\\sin 1 < \\cos 1 < 1\\)"
+      ],
+      answer: 0
+    },
+    {
+      question: "다음 주어진 세 수 \\(\\sin 0,\\ \\sin \\frac{\\pi}{4},\\ \\sin 1\\)의 대소 관계를 비교하라.",
+      type: "4choice",
+      choices: [
+        "(A) \\(\\sin 1 < \\sin 0 < \\sin \\frac{\\pi}{4}\\)",
+        "(B) \\(\\sin 0 < \\sin 1 < \\sin \\frac{\\pi}{4}\\)",
+        "(C) \\(\\sin 0 < \\sin \\frac{\\pi}{4} < \\sin 1\\)",
+        "(D) \\(\\sin \\frac{\\pi}{4} < \\sin 0 < \\sin 1\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "다음 주어진 세 수 \\(\\sin 219^{\\circ},\\ \\cos 219^{\\circ},\\ \\sin 315^{\\circ}\\)의 대소 관계를 비교하라.",
+      type: "4choice",
+      choices: [
+        "(A) \\(\\sin 315^{\\circ} < \\cos 219^{\\circ} < \\sin 219^{\\circ}\\)",
+        "(B) \\(\\cos 219^{\\circ} < \\sin 315^{\\circ} < \\sin 219^{\\circ}\\)",
+        "(C) \\(\\sin 219^{\\circ} < \\cos 219^{\\circ} < \\sin 315^{\\circ}\\)",
+        "(D) \\(\\cos 219^{\\circ} < \\sin 219^{\\circ} < \\sin 315^{\\circ}\\)"
+      ],
+      answer: 1
+    },
+    {
+      question: "다음 주어진 세 수 \\(\\sin \\frac{\\pi}{7},\\ \\sin \\frac{\\pi}{6},\\ \\sin \\frac{\\pi}{5}\\)의 대소 관계를 비교하라.",
+      type: "4choice",
+      choices: [
+        "(A) \\(\\sin \\frac{\\pi}{5} < \\sin \\frac{\\pi}{6} < \\sin \\frac{\\pi}{7}\\)",
+        "(B) \\(\\sin \\frac{\\pi}{6} < \\sin \\frac{\\pi}{7} < \\sin \\frac{\\pi}{5}\\)",
+        "(C) \\(\\sin \\frac{\\pi}{7} < \\sin \\frac{\\pi}{5} < \\sin \\frac{\\pi}{6}\\)",
+        "(D) \\(\\sin \\frac{\\pi}{7} < \\sin \\frac{\\pi}{6} < \\sin \\frac{\\pi}{5}\\)"
+      ],
+      answer: 3
+    },
+    {
+      question: "다음 주어진 세 수 \\(\\cos 0,\\ \\cos 1,\\ \\cos \\frac{\\pi}{2}\\)의 대소 관계를 비교하라.",
+      type: "4choice",
+      choices: [
+        "(A) \\(\\cos 1 < \\cos \\frac{\\pi}{2} < \\cos 0\\)",
+        "(B) \\(\\cos 0 < \\cos 1 < \\cos \\frac{\\pi}{2}\\)",
+        "(C) \\(\\cos \\frac{\\pi}{2} < \\cos 1 < \\cos 0\\)",
+        "(D) \\(\\cos 1 < \\cos 0 < \\cos \\frac{\\pi}{2}\\)"
+      ],
+      answer: 2
+    },
+    {
+      question: "다음 주어진 세 수 \\(\\cos \\frac{\\pi}{2},\\ \\cos \\frac{\\pi}{3},\\ \\cos \\frac{\\pi}{5}\\)의 대소 관계를 비교하라.",
+      type: "4choice",
+      choices: [
+        "(A) \\(\\cos \\frac{\\pi}{3} < \\cos \\frac{\\pi}{2} < \\cos \\frac{\\pi}{5}\\)",
+        "(B) \\(\\cos \\frac{\\pi}{5} < \\cos \\frac{\\pi}{3} < \\cos \\frac{\\pi}{2}\\)",
+        "(C) \\(\\cos \\frac{\\pi}{2} < \\cos \\frac{\\pi}{5} < \\cos \\frac{\\pi}{3}\\)",
+        "(D) \\(\\cos \\frac{\\pi}{2} < \\cos \\frac{\\pi}{3} < \\cos \\frac{\\pi}{5}\\)"
+      ],
+      answer: 3
+    },
+    {
+      question: "다음 주어진 세 수 \\(\\tan \\frac{\\pi}{3},\\ \\tan \\frac{\\pi}{4},\\ \\tan \\frac{\\pi}{5}\\)의 대소 관계를 비교하라.",
+      type: "4choice",
+      choices: [
+        "(A) \\(\\tan \\frac{\\pi}{4} < \\tan \\frac{\\pi}{5} < \\tan \\frac{\\pi}{3}\\)",
+        "(B) \\(\\tan \\frac{\\pi}{3} < \\tan \\frac{\\pi}{4} < \\tan \\frac{\\pi}{5}\\)",
+        "(C) \\(\\tan \\frac{\\pi}{5} < \\tan \\frac{\\pi}{4} < \\tan \\frac{\\pi}{3}\\)",
+        "(D) \\(\\tan \\frac{\\pi}{5} < \\tan \\frac{\\pi}{3} < \\tan \\frac{\\pi}{4}\\)"
+      ],
+      answer: 2
+    }
+  ];
+
+  // 난이도별 시간, 점수 설정
+  let timeLeft = 0;
+  let pointsPerQuestion = 0;
+  let timer = null;
+  let totalElapsedTime = 0; // 전체 게임 시간
+
+  let currentQuestionIndex = 0;
+  let questionsCopy = []; // 섞은 문제들
+
+  let lives = 3;
+  let score = 0;
+  let playerName = "";
+
+  let isTiming = false; // 문제 시간 카운트 중 여부
+  let noTimeLimit = false; // 하 난이도인 경우 true
+
+  // 매 초마다 실행: 전체 시간 증가, 현재 문제 에너지바 감소
+  function globalTick() {
+    totalElapsedTime++;
+    document.getElementById("elapsedTime").textContent = totalElapsedTime;
+
+    // 에너지바 감소
+    if (!noTimeLimit && isTiming && timeLeft > 0) {
+      timeLeft--;
+      updateEnergyBar();
+      if (timeLeft <= 0) {
+        // 시간 초과 -> 기회 1 소모
+        lives--;
+        updateLives();
+        isTiming = false;
+        // 시간을 소모하고나서 바로 다음 문제로 넘어감
+        nextQuestion(false, true); // 틀린건 아니지만 시간초과로 넘어감
+      }
+    }
+  }
+
+  function updateEnergyBar() {
+    const bar = document.getElementById("energyBar");
+    const container = document.getElementById("energyBarContainer");
+    if (noTimeLimit) {
+      // 하 난이도면 에너지바 풀로 유지
+      bar.style.width = "100%";
+      return;
+    }
+    const percent = (timeLeft / initialTimeForDifficulty) * 100;
+    bar.style.width = percent + "%";
+  }
+
+  let initialTimeForDifficulty = 0; // 난이도에 따라 달라지는 시작 시간
+
+  // 난이도 선택 후 게임 시작
+  function startGame(difficulty) {
+    document.getElementById("difficultyScreen").classList.add("hidden");
+    document.getElementById("gameScreen").classList.remove("hidden");
+
+    switch (difficulty) {
+      case "최상":
+        initialTimeForDifficulty = 25;
+        pointsPerQuestion = 20;
+        break;
+      case "상":
+        initialTimeForDifficulty = 35;
+        pointsPerQuestion = 15;
+        break;
+      case "중":
+        initialTimeForDifficulty = 45;
+        pointsPerQuestion = 13;
+        break;
+      case "하":
+        noTimeLimit = true;
+        initialTimeForDifficulty = 999999; // 사실상 무제한
+        pointsPerQuestion = 10;
+        break;
+    }
+
+    // 문제 순서를 섞는다
+    questionsCopy = shuffleQuestions(allQuestions);
+    currentQuestionIndex = 0;
+    lives = 3;
+    score = 0;
+    document.getElementById("score").textContent = score;
+    document.getElementById("lives").textContent = lives;
+
+    // 전체 시간 타이머 시작
+    if (timer) clearInterval(timer);
+    timer = setInterval(globalTick, 1000);
+
+    loadQuestion();
+  }
+
+  // 이름 입력 화면 -> 난이도화면
+  function showDifficulty() {
+    const nameInput = document.getElementById("playerName");
+    if (!nameInput.value.trim()) {
+      alert("이름을 입력하세요!");
+      return;
+    }
+    playerName = nameInput.value.trim();
+    document.getElementById("nameInputScreen").classList.add("hidden");
+    document.getElementById("difficultyScreen").classList.remove("hidden");
+  }
+
+  // 문제 불러오기
+  function loadQuestion() {
+    if (currentQuestionIndex >= questionsCopy.length) {
+      // 모든 문제를 다 풀었다면?
+      endGame();
+      return;
+    }
+    // 에너지바 초기화
+    if (!noTimeLimit) {
+      timeLeft = initialTimeForDifficulty;
+      isTiming = true;
+    }
+
+    const q = questionsCopy[currentQuestionIndex];
+
+    document.getElementById("questionText").textContent = q.question;
+    const choicesDiv = document.getElementById("choices");
+    choicesDiv.innerHTML = "";
+
+    // 2지선다 or 4지선다
+    q.choices.forEach((choice, idx) => {
+      const btn = document.createElement("button");
+      btn.className = "choice-btn";
+      btn.innerHTML = choice; 
+      btn.onclick = () => checkAnswer(idx);
+      choicesDiv.appendChild(btn);
+    });
+
+    // 동적으로 생성된 수식을 렌더링
+    MathJax.typeset();
+  }
+
+  // 정답 체크
+  function checkAnswer(selectedIndex) {
+    const q = questionsCopy[currentQuestionIndex];
+    isTiming = false; // 문제 시간 카운트 중단
+
+    let correct = (selectedIndex === q.answer);
+    if (correct) {
+      score += pointsPerQuestion;
+      document.getElementById("score").textContent = score;
+      alert("정답입니다!");
+    } else {
+      lives--;
+      updateLives();
+      alert("틀렸습니다!\n정답: " + q.choices[q.answer]);
+    }
+
+    nextQuestion(correct, false);
+  }
+
+  function nextQuestion(correct, timeOver) {
+    currentQuestionIndex++;
+
+    if (lives <= 0) {
+      // 기회 소진 -> 종료
+      endGame();
+      return;
+    }
+    if (currentQuestionIndex >= questionsCopy.length) {
+      endGame();
+      return;
+    }
+    loadQuestion();
+  }
+
+  function updateLives() {
+    document.getElementById("lives").textContent = lives;
+  }
+
+  function endGame() {
+    isTiming = false;
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
+    alert("게임 종료! 당신의 점수는 " + score + "점 입니다.");
+    document.getElementById("sendScoreBtn").parentNode.classList.remove("hidden");
+  }
+
+  function shuffleQuestions(array) {
+    // 문제 순서만 랜덤화
+    let arrCopy = [...array];
+    for (let i = arrCopy.length - 1; i > 0; i--) {
+      const r = Math.floor(Math.random() * (i + 1));
+      [arrCopy[i], arrCopy[r]] = [arrCopy[r], arrCopy[i]];
+    }
+    return arrCopy;
+  }
+
+  // 점수 전송
+  function sendScore() {
+    saveData("삼각함수의 그래프와 성질", playerName, score, totalElapsedTime);
+  }
+
+  /*******************************************
+   *  서버 전송 함수 (문제에서 주어진 코드)
+   *******************************************/
+  async function saveData(game, name, score, elapsedTime) {
+    const FUNCTION_URL = "https://us-central1-record-f420d.cloudfunctions.net/report";
+
+    const requestData = {
+      game,
+      name,
+      score: parseInt(score, 10),
+      elapsedTime: parseInt(elapsedTime, 10)
+    };
+
+    try {
+      const response = await fetch(FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+      });
+
+      const responseData = await response.json();
+
+      if (response.ok) {
+        document.getElementById('response').innerText = 
+          `성공: ${JSON.stringify(responseData, null, 2)}`;
+      } else {
+        document.getElementById('response').innerText = 
+          `오류: ${JSON.stringify(responseData, null, 2)}`;
+      }
+    } catch (error) {
+      console.error('요청 실패:', error);
+      document.getElementById('response').innerText = 
+        `네트워크 오류: ${error.message}`;
+    }
+  }
+</script>
+</body>
+</html>
